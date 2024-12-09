@@ -1,8 +1,8 @@
 name: pixor_early_fusion
 
 yaml_parser: "load_bev_params"
-root_dir: "opv2v_data_dumping/train"
-validate_dir: "opv2v_data_dumping/validate"
+root_dir: "/home/xavierallem/Opencood_testing/OpenCOOD/OPV2V/scenario_train"
+validate_dir: "/home/xavierallem/Opencood_testing/OpenCOOD/OPV2V/scenario_train"
 train_params:
   batch_size: &batch_size 2
   epoches: 15

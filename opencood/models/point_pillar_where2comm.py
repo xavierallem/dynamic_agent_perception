@@ -6,12 +6,15 @@ from opencood.models.sub_modules.downsample_conv import DownsampleConv
 from opencood.models.sub_modules.naive_compress import NaiveCompressor
 from opencood.models.sub_modules.pillar_vfe import PillarVFE
 from opencood.models.sub_modules.point_pillar_scatter import PointPillarScatter
+from opencood.models.sub_modules.Ground_Filter import GroundFilter
 
 
 class PointPillarWhere2comm(nn.Module):
     def __init__(self, args):
         super(PointPillarWhere2comm, self).__init__()
         self.max_cav = args['max_cav']
+        if args.get('ground_filter', {}).get('use_ground_filter', False):
+            self.ground_filter = GroundFilter(args['ground_filter'])
         # Pillar VFE
         self.pillar_vfe = PillarVFE(args['pillar_vfe'],
                                     num_point_features=4,
@@ -69,6 +72,11 @@ class PointPillarWhere2comm(nn.Module):
             p.requires_grad = False
 
     def forward(self, data_dict):
+        if hasattr(self, 'ground_filter'):
+            data_dict['processed_lidar']['voxel_features'] = self.ground_filter(
+                data_dict['processed_lidar']['voxel_features'],
+                data_dict['processed_lidar']['points']
+            )
         voxel_features = data_dict['processed_lidar']['voxel_features']
         voxel_coords = data_dict['processed_lidar']['voxel_coords']
         voxel_num_points = data_dict['processed_lidar']['voxel_num_points']

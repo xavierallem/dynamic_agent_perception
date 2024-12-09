@@ -10,6 +10,7 @@ import torch.nn as nn
 from opencood.models.sub_modules.pillar_vfe import PillarVFE
 from opencood.models.sub_modules.point_pillar_scatter import PointPillarScatter
 from opencood.models.sub_modules.att_bev_backbone import AttBEVBackbone
+from opencood.models.sub_modules.base_bev_backbone import BaseBEVBackbone
 
 
 class PointPillarIntermediate(nn.Module):
@@ -22,7 +23,7 @@ class PointPillarIntermediate(nn.Module):
                                     voxel_size=args['voxel_size'],
                                     point_cloud_range=args['lidar_range'])
         self.scatter = PointPillarScatter(args['point_pillar_scatter'])
-        self.backbone = AttBEVBackbone(args['base_bev_backbone'], 64)
+        self.backbone = BaseBEVBackbone(args['base_bev_backbone'], 64)
 
         self.cls_head = nn.Conv2d(128 * 3, args['anchor_number'],
                                   kernel_size=1)

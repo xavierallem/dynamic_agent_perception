@@ -1,6 +1,6 @@
 name: point_pillar_intermediate_fusion
-root_dir: "opv2v_data_dumping/train"
-validate_dir: "opv2v_data_dumping/validate"
+root_dir: "/home/xavierallem/Opencood_testing/OpenCOOD/OPV2V/scenario_train"
+validate_dir: "/home/xavierallem/Opencood_testing/OpenCOOD/OPV2V/scenario_train"
 
 yaml_parser: "load_point_pillar_params"
 train_params:
@@ -16,7 +16,7 @@ fusion:
 # preprocess-related
 preprocess:
   # options: BasePreprocessor, VoxelPreprocessor, BevPreprocessor
-  core_method: 'SpVoxelPreprocessor'
+  core_method: 'BevPreprocessor'
   args:
     voxel_size: &voxel_size [0.4, 0.4, 4]
     max_points_per_voxel: 32
@@ -37,7 +37,7 @@ data_augment:
 
 # anchor box related
 postprocess:
-  core_method: 'VoxelPostprocessor' # VoxelPostprocessor, BevPostprocessor supported
+  core_method: 'BevPostprocessor' # VoxelPostprocessor, BevPostprocessor supported
   anchor_args:
     cav_lidar_range: *cav_lidar
     l: 3.9
@@ -76,9 +76,16 @@ model:
       num_filters: [64, 128, 256]
       upsample_strides: [1, 2, 4]
       num_upsample_filter: [128, 128, 128]
-      compression: 0
 
     anchor_num: *achor_num
+    compression: 2
+    backbone_fix: False
+    shrink_header:
+      kernal_size: [ 3 ]
+      stride: [ 2 ]
+      padding: [ 1 ]
+      dim: [ 256 ]
+      input_dim: 384  # 128 * 3
 
 loss:
   core_method: point_pillar_loss

@@ -1,6 +1,6 @@
 name: point_pillar_where2comm
-root_dir: '/data/opv2x/train'
-validate_dir: '/data/opv2x/validate'
+root_dir: '/home/xavierallem/Opencood_testing/OpenCOOD/OPV2V/scenario_train'
+validate_dir: '/home/xavierallem/Opencood_testing/OpenCOOD/OPV2V/scenario_train'
 
 
 wild_setting:

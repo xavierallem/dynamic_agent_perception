@@ -78,6 +78,7 @@ class SpVoxelPreprocessor(BasePreprocessor):
         data_dict['voxel_features'] = voxels
         data_dict['voxel_coords'] = coordinates
         data_dict['voxel_num_points'] = num_points
+        data_dict['points'] = pcd_np # Allen: I added this line
 
         return data_dict
 
@@ -121,11 +122,13 @@ class SpVoxelPreprocessor(BasePreprocessor):
         voxel_features = []
         voxel_num_points = []
         voxel_coords = []
+        points=[] # Allen: I added this line
 
         for i in range(len(batch)):
             voxel_features.append(batch[i]['voxel_features'])
             voxel_num_points.append(batch[i]['voxel_num_points'])
             coords = batch[i]['voxel_coords']
+            points.append(torch.from_numpy(batch[i]['points'])) # Allen: I added this line
             voxel_coords.append(
                 np.pad(coords, ((0, 0), (1, 0)),
                        mode='constant', constant_values=i))
@@ -136,7 +139,10 @@ class SpVoxelPreprocessor(BasePreprocessor):
 
         return {'voxel_features': voxel_features,
                 'voxel_coords': voxel_coords,
-                'voxel_num_points': voxel_num_points}
+                'voxel_num_points': voxel_num_points,
+                'points': points
+                } 
+        # Allen: I added this line
 
     @staticmethod
     def collate_batch_dict(batch: dict):
@@ -165,7 +171,10 @@ class SpVoxelPreprocessor(BasePreprocessor):
                 np.pad(coords[i], ((0, 0), (1, 0)),
                        mode='constant', constant_values=i))
         voxel_coords = torch.from_numpy(np.concatenate(voxel_coords))
+        points = points = [torch.from_numpy(p) for p in batch['points']]
 
         return {'voxel_features': voxel_features,
                 'voxel_coords': voxel_coords,
-                'voxel_num_points': voxel_num_points}
+                'voxel_num_points': voxel_num_points,
+                'points': points
+                } # Allen: I added this line
