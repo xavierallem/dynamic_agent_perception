@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 from opencood.models.sub_modules.base_bev_backbone import BaseBEVBackbone
-from opencood.models.fuse_modules.where2comm_fuse import Where2comm
+from opencood.models.fuse_modules.t_where2comm_fuse import TrajectoryAwareWhere2comm
 from opencood.models.sub_modules.downsample_conv import DownsampleConv
 from opencood.models.sub_modules.naive_compress import NaiveCompressor
 from opencood.models.sub_modules.pillar_vfe import PillarVFE
@@ -9,9 +9,9 @@ from opencood.models.sub_modules.point_pillar_scatter import PointPillarScatter
 from opencood.models.sub_modules.Ground_Filter import GroundFilter
 
 
-class PointPillarWhere2comm(nn.Module):
+class PointPillarWhere2commt(nn.Module):
     def __init__(self, args):
-        super(PointPillarWhere2comm, self).__init__()
+        super(PointPillarWhere2commt, self).__init__()
         self.max_cav = args['max_cav']
         if args.get('ground_filter', {}).get('use_ground_filter', False):
             self.ground_filter = GroundFilter(args['ground_filter'])
@@ -36,7 +36,7 @@ class PointPillarWhere2comm(nn.Module):
         else:
             self.compression = False
 
-        self.fusion_net = Where2comm(args['where2comm_fusion'])
+        self.fusion_net = TrajectoryAwareWhere2comm(args['where2comm_fusion'])
         self.multi_scale = args['where2comm_fusion']['multi_scale']
 
         self.cls_head = nn.Conv2d(args['head_dim'], args['anchor_number'], kernel_size=1)
@@ -82,6 +82,7 @@ class PointPillarWhere2comm(nn.Module):
         voxel_num_points = data_dict['processed_lidar']['voxel_num_points']
         record_len = data_dict['record_len']
         pairwise_t_matrix = data_dict['pairwise_t_matrix']
+        trajectory = data_dict['trajectory']
 
         batch_dict = {'voxel_features': voxel_features,
                       'voxel_coords': voxel_coords,
@@ -112,6 +113,7 @@ class PointPillarWhere2comm(nn.Module):
                                                                  psm_single,
                                                                  record_len,
                                                                  pairwise_t_matrix,
+                                                                 trajectory,
                                                                  self.backbone)
             if self.shrink_flag:
                 fused_feature = self.shrink_conv(fused_feature)
@@ -119,7 +121,8 @@ class PointPillarWhere2comm(nn.Module):
             fused_feature, communication_rates = self.fusion_net(spatial_features_2d,
                                                                  psm_single,
                                                                  record_len,
-                                                                 pairwise_t_matrix)
+                                                                 pairwise_t_matrix,
+                                                                 trajectory)
 
         psm = self.cls_head(fused_feature)
         rm = self.reg_head(fused_feature)

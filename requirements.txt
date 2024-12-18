@@ -15,3 +15,8 @@ shapely==2.0.0
 einops
 cumm
 timm
+# For python 3.8
+nvidia-cublas-cu11==11.10.3.66
+nvidia-cuda-nvrtc-cu11==11.7.99
+nvidia-cuda-runtime-cu11==11.7.99
+nvidia-cudnn-cu11==8.5.0.96

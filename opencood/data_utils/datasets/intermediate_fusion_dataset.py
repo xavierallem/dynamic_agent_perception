@@ -87,7 +87,11 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
         velocity = []
         time_delay = []
         infra = []
+        
         spatial_correction_matrix = []
+        trajectories = [] # NOTE:- Allen Added this line for trajectory
+
+   
 
         if self.visualize:
             projected_lidar_stack = []
@@ -124,6 +128,10 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
             spatial_correction_matrix.append(
                 selected_cav_base['params']['spatial_correction_matrix'])
             infra.append(1 if int(cav_id) < 0 else 0)
+                    # Convert trajectory to tensor
+             # NOTE:- Allen Added this line for trajectory
+            trajectories.append(selected_cav_base['params']['plan_trajectory'])
+           
 
             if self.visualize:
                 projected_lidar_stack.append(
@@ -165,6 +173,10 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
                                                spatial_correction_matrix),1,1))
         spatial_correction_matrix = np.concatenate([spatial_correction_matrix,
                                                    padding_eye], axis=0)
+        
+        # NOTE: Allen Added below lines for trajectory
+    # For trajectories, pad with empty lists to max_cav
+        trajectories = trajectories + (self.max_cav - len(trajectories)) * [[]]
 
         processed_data_dict['ego'].update(
             {'object_bbx_center': object_bbx_center,
@@ -178,7 +190,8 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
              'time_delay': time_delay,
              'infra': infra,
              'spatial_correction_matrix': spatial_correction_matrix,
-             'pairwise_t_matrix': pairwise_t_matrix})
+             'pairwise_t_matrix': pairwise_t_matrix,
+             'trajectory': trajectories})
 
         if self.visualize:
             processed_data_dict['ego'].update({'origin_lidar':
@@ -233,12 +246,15 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
         # normalize veloccity by average speed 30 km/h
         velocity = velocity / 30
 
+        # Trajectory  NOTE:- Allen
+        trajectory = selected_cav_base['params']['plan_trajectory']
         selected_cav_processed.update(
             {'object_bbx_center': object_bbx_center[object_bbx_mask == 1],
              'object_ids': object_ids,
              'projected_lidar': lidar_np,
              'processed_features': processed_lidar,
-             'velocity': velocity})
+             'velocity': velocity,
+             'trajectory': trajectory})
 
         return selected_cav_processed
 
@@ -289,7 +305,7 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
         velocity = []
         time_delay = []
         infra = []
-
+        trajectories_list = [] # NOTE:- Allen Added this line for trajectory
         # pairwise transformation matrix
         pairwise_t_matrix_list = []
 
@@ -316,6 +332,7 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
             infra.append(ego_dict['infra'])
             spatial_correction_matrix_list.append(
                 ego_dict['spatial_correction_matrix'])
+            trajectories_list.append(ego_dict['trajectory']) # NOTE:- Allen Added this line for trajectory
 
             if self.visualize:
                 origin_lidar.append(ego_dict['origin_lidar'])
@@ -344,6 +361,58 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
             torch.stack([velocity, time_delay, infra], dim=-1).float()
         # (B, max_cav)
         pairwise_t_matrix = torch.from_numpy(np.array(pairwise_t_matrix_list))
+         # Convert trajectory lists to tensor
+
+         # NOTE:- Allen Added below lines for trajectory
+        '''FIXED_TRAJECTORY_LENGTH = 5  
+        # Debug prints
+        print("\nNumber of batches:", len(trajectories_list))
+        for batch_idx, batch_traj in enumerate(trajectories_list):
+            print(f"\nBatch {batch_idx}:")
+            record_len = batch[batch_idx]['ego']['cav_num']  # Get number of actual CAVs
+            print(f"Number of actual CAVs in this batch: {record_len}")
+            
+            for cav_idx, traj in enumerate(batch_traj):
+                traj_array = np.array(traj)
+                if traj_array.size > 0:
+                    print(f"CAV {cav_idx}: has trajectory with shape {traj_array.shape}")
+                    print(f"First point: {traj_array[0]}")  # Print first trajectory point
+                else:
+                    print(f"CAV {cav_idx}: NO TRAJECTORY") '''
+
+        # Set fixed sizes
+        FIXED_TRAJECTORY_LENGTH = 10  # Make this larger than your max trajectory length (8 or 9)
+        TRAJECTORY_DIM = 3  # (x, y, heading)
+
+        processed_trajectories = []
+        for batch_idx, batch_traj in enumerate(trajectories_list):
+            batch_processed = []
+            for cav_idx, traj in enumerate(batch_traj):
+                if len(traj) == 0:  # Empty trajectory (padded CAV)
+                    # Create zero tensor for padding
+                    traj_tensor = torch.zeros((FIXED_TRAJECTORY_LENGTH, TRAJECTORY_DIM), 
+                                            dtype=torch.float32)
+                else:
+                    # Convert to tensor
+                    traj_tensor = torch.tensor(traj, dtype=torch.float32)  # [T, 3]
+                    current_length = traj_tensor.shape[0]
+                    
+                    # Pad with zeros if shorter than fixed length
+                    if current_length < FIXED_TRAJECTORY_LENGTH:
+                        padding = torch.zeros((FIXED_TRAJECTORY_LENGTH - current_length, TRAJECTORY_DIM),
+                                            dtype=torch.float32)
+                        traj_tensor = torch.cat([traj_tensor, padding], dim=0)
+                    else:
+                        traj_tensor = traj_tensor[:FIXED_TRAJECTORY_LENGTH]
+                
+                batch_processed.append(traj_tensor)
+            
+            # Stack trajectories for this batch
+            batch_tensor = torch.stack(batch_processed)  # [max_cav, T, 3]
+            processed_trajectories.append(batch_tensor)
+
+        # Stack all batches
+        trajectories = torch.stack(processed_trajectories)  # [B, max_cav, T, 3]
 
         # object id is only used during inference, where batch size is 1.
         # so here we only get the first element.
@@ -355,7 +424,8 @@ class IntermediateFusionDataset(basedataset.BaseDataset):
                                    'object_ids': object_ids[0],
                                    'prior_encoding': prior_encoding,
                                    'spatial_correction_matrix': spatial_correction_matrix_list,
-                                   'pairwise_t_matrix': pairwise_t_matrix})
+                                   'pairwise_t_matrix': pairwise_t_matrix,
+                                   'trajectory': trajectories})
 
         if self.visualize:
             origin_lidar = \

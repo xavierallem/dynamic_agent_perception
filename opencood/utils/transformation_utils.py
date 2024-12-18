@@ -9,6 +9,7 @@ Transformation utils
 
 import numpy as np
 
+# NOTE : Allen here for x_to world and x1_x2 
 
 def x_to_world(pose):
     """
