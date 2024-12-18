@@ -10,57 +10,7 @@ import torch.nn.functional as F
 
 from opencood.models.fuse_modules.self_attn import ScaledDotProductAttention
 
-class TrajectoryProcessor(nn.Module):
-    def __init__(self, args):
-        super(TrajectoryProcessor, self).__init__()
-        # Store BEV parameters
-        self.voxel_size = args['voxel_size']
-        self.point_cloud_range = args['point_cloud_range']
-        self.bev_height = args['bev_height']  # H
-        self.bev_width = args['bev_width']    # W
-        
-        # Initialize trajectory encoder
-        self.trajectory_encoder = nn.Sequential(
-            nn.Linear(3, 64),  # [x, y, heading]
-            nn.ReLU(),
-            nn.Linear(64, 128)
-        )
-        
-    def world_to_bev(self, points):
-        """Convert world coordinates to BEV indices"""
-        x = (points[..., 0] - self.point_cloud_range[0]) / self.voxel_size[0]
-        y = (points[..., 1] - self.point_cloud_range[1]) / self.voxel_size[1]
-        
-        # Ensure coordinates are within BEV bounds
-        x = torch.clamp(x, 0, self.bev_width - 1)
-        y = torch.clamp(y, 0, self.bev_height - 1)
-        
-        return torch.stack([x, y], dim=-1)
-    
-    def create_trajectory_mask(self, trajectory, device):
-        """Create attention mask for trajectory points"""
-        # Convert world coordinates to BEV coordinates
-        traj_points = self.world_to_bev(trajectory[..., :2])  # Only use x, y
-        
-        # Initialize empty mask
-        mask = torch.zeros((1, 1, self.bev_height, self.bev_width), device=device)
-        
-        # Create Gaussian kernel
-        sigma = 2.0
-        kernel_size = 7
-        
-        for point in traj_points:
-            x, y = point.long()
-            
-            # Create local attention around each trajectory point
-            for i in range(max(0, y-kernel_size//2), min(self.bev_height, y+kernel_size//2+1)):
-                for j in range(max(0, x-kernel_size//2), min(self.bev_width, x+kernel_size//2+1)):
-                    dist = torch.sqrt(torch.tensor(float((i-y)**2 + (j-x)**2)))
-                    mask[0, 0, i, j] += torch.exp(-dist**2 / (2*sigma**2))
-        
-        # Normalize mask
-        mask = F.normalize(mask, p=1, dim=(2,3))
-        return mask
+
 
 class Communication(nn.Module):
     def __init__(self, args):
