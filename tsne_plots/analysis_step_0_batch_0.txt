@@ -1,0 +1,17 @@
+T-SNE Analysis for Step 0, Batch 0
+==================================================
+
+Total samples: 15000
+Perplexity used: 50
+Silhouette Score: -0.0057
+
+Expert Statistics:
+Expert 0: 5000 samples, avg feature norm: 0.1530
+Expert 1: 5000 samples, avg feature norm: 0.1465
+Expert 2: 5000 samples, avg feature norm: 0.1566
+
+Recommendations:
+- Low silhouette score suggests experts are not well-separated
+- Consider adjusting MoE loss weights or routing mechanisms
+- Expert feature magnitudes are very similar
+- Experts might not be specializing enough

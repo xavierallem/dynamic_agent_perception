@@ -1,6 +1,6 @@
 name: point_pillar_late_fusion
-root_dir: "opv2v_data_dumping/train"
-validate_dir: "opv2v_data_dumping/validate"
+root_dir: "/home/xavierallem/Opencood_testing/OpenCOOD/OPV2V/scenario_train"
+validate_dir: "/home/xavierallem/Opencood_testing/OpenCOOD/OPV2V/scenario_train"
 
 yaml_parser: "load_point_pillar_params"
 train_params:

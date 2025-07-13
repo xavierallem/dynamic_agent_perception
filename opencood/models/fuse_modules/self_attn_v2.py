@@ -71,7 +71,10 @@ class AttFusion(nn.Module):
         self.att = ScaledDotProductAttention(feature_dim)
 
     def forward(self, x, record_len):
-
+        if not self.training:
+            original_features = x.clone()
+            original_bandwidth = (original_features != 0).sum().item() * 4 / 1000000
+            save_to_csv(original_bandwidth)
         split_x = self.regroup(x, record_len)
         C, W, H = split_x[0].shape[1:]
         out = []
@@ -87,46 +90,82 @@ class AttFusion(nn.Module):
         cum_sum_len = torch.cumsum(record_len, dim=0)
         split_x = torch.tensor_split(x, cum_sum_len[:-1].cpu())
         return split_x
-class MoEScaledDotProductAttention(nn.Module):
+# class MoEScaledDotProductAttention(nn.Module):
 
+#     def __init__(self, dim, num_experts=3):
+#         super(MoEScaledDotProductAttention, self).__init__()
+#         self.dim = dim
+#         self.num_experts = num_experts
+        
+#         # Create multiple experts, each being a standard scaled dot product attention
+#         self.experts = nn.ModuleList([
+#             ScaledDotProductAttention(dim) for _ in range(num_experts)
+#         ])
+        
+#         self.router = nn.Sequential(
+#             nn.Linear(dim, 128),
+#             nn.ReLU(),
+#             nn.Linear(128, num_experts),
+#             nn.Softmax(dim=-1)
+#         )
+    
+#     def forward(self, query, key, value):
+
+#         H_W, cav_num, C = query.shape
+
+#         pooled_query = query.mean(dim=1)  # [H*W, dim]
+#         routing_weights = self.router(pooled_query)  # [H*W, num_experts]
+        
+#         # Apply each expert
+#         expert_outputs = []
+#         for i in range(self.num_experts):
+           
+#             expert_output = self.experts[i](query, key, value) 
+#             expert_outputs.append(expert_output)
+        
+      
+#         stacked_outputs = torch.stack(expert_outputs, dim=1)
+        
+
+#         routing_weights = routing_weights.view(H_W, self.num_experts, 1, 1)  
+        
+#         # Weighted sum of expert outputs
+#         combined_output = (stacked_outputs * routing_weights).sum(dim=1) 
+        
+#         return combined_output
+class MoEScaledDotProductAttention(nn.Module):
     def __init__(self, dim, num_experts=3):
         super(MoEScaledDotProductAttention, self).__init__()
         self.dim = dim
         self.num_experts = num_experts
-        
-        # Create multiple experts, each being a standard scaled dot product attention
         self.experts = nn.ModuleList([
             ScaledDotProductAttention(dim) for _ in range(num_experts)
         ])
-        
         self.router = nn.Sequential(
             nn.Linear(dim, 128),
             nn.ReLU(),
             nn.Linear(128, num_experts),
-            nn.Softmax(dim=-1)
+            #nn.Softmax(dim=-1)
         )
-    
+        with torch.no_grad():
+              self.router[-1].bias.uniform_(-0.02, 0.02) # Add small random bias
+
     def forward(self, query, key, value):
-
         H_W, cav_num, C = query.shape
+        pooled_query = query.mean(dim=1)
 
-        pooled_query = query.mean(dim=1)  # [H*W, dim]
-        routing_weights = self.router(pooled_query)  # [H*W, num_experts]
-        
-        # Apply each expert
+        # --- CORRECTED: Apply Softmax ONCE after getting logits ---
+        logits = self.router(pooled_query) # Get raw scores (logits)
+        routing_weights = F.softmax(logits, dim=-1) # Apply softmax HERE
+        # --- END CORRECTION ---
+
         expert_outputs = []
         for i in range(self.num_experts):
-           
-            expert_output = self.experts[i](query, key, value) 
+            expert_output = self.experts[i](query, key, value)
             expert_outputs.append(expert_output)
-        
-      
         stacked_outputs = torch.stack(expert_outputs, dim=1)
-        
 
-        routing_weights = routing_weights.view(H_W, self.num_experts, 1, 1)  
-        
-        # Weighted sum of expert outputs
-        combined_output = (stacked_outputs * routing_weights).sum(dim=1) 
-        
-        return combined_output
+        routing_weights_reshaped = routing_weights.view(H_W, self.num_experts, 1, 1)
+        combined_output = (stacked_outputs * routing_weights_reshaped).sum(dim=1)
+
+        return combined_output, routing_weights, expert_outputs  # Return weights

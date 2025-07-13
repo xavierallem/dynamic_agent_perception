@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 from opencood.models.sub_modules.base_bev_backbone import BaseBEVBackbone
-from opencood.models.fuse_modules.where2comm_fuse import Where2comm
+from opencood.models.fuse_modules.where2comm_fuse_g import Where2commGNN
 from opencood.models.sub_modules.downsample_conv import DownsampleConv
 from opencood.models.sub_modules.naive_compress import NaiveCompressor
 from opencood.models.sub_modules.pillar_vfe import PillarVFE
@@ -36,7 +36,7 @@ class PointPillarWhere2comm(nn.Module):
         else:
             self.compression = False
 
-        self.fusion_net = Where2comm(args['where2comm_fusion'])
+        self.fusion_net = Where2commGNN(args['where2comm_fusion'])
         self.multi_scale = args['where2comm_fusion']['multi_scale']
 
         self.cls_head = nn.Conv2d(args['head_dim'], args['anchor_number'], kernel_size=1)

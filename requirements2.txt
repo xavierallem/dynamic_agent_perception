@@ -37,9 +37,9 @@ dash-table
 debugpy
 decorator
 defusedxml
-diagnostic-analysis
-diagnostic-common-diagnostics
-diagnostic-updater
+#diagnostic-analysis
+#diagnostic-common-diagnostics
+#diagnostic-updater
 distro
 dynamic-reconfigure
 easydict
